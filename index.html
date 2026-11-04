@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GMS Payroll & Multi-Bank Gateway - PT Graha Mega Solusindo</title>
+    <!-- Tailwind CSS untuk styling modern -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS untuk membaca dan mengekspor file Excel/CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* CSS Animasi Custom */
+        @keyframes pulse-subtle {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .animate-pulse-subtle {
+            animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen relative">
+
+    <!-- Overlay Loading Spinner (Pop-up Loading) -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center hidden">
+        <div class="bg-white p-6 rounded-2xl shadow-2xl flex flex-col items-center max-w-xs text-center space-y-4">
+            <div class="relative w-16 h-16 flex items-center justify-center">
+                <div class="absolute inset-0 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                <i class="fa-solid fa-building-columns text-indigo-600 text-xl"></i>
+            </div>
+            <div>
+                <h4 id="loadingTitle" class="font-bold text-slate-800 text-base">Memproses Data...</h4>
+                <p id="loadingDesc" class="text-xs text-slate-500 mt-1">Harap tunggu sejenak, sistem sedang menghitung kalkulasi payroll.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto p-6 space-y-6">
+        
+        <!-- Header Utama dengan Logo & Branding GMS -->
+        <header class="bg-white shadow-sm border border-slate-200/80 rounded-2xl p-6 transition-all">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                
+                <!-- Logo & Identitas Perusahaan -->
+                <div class="flex items-center gap-4">
+                    <!-- Badge Logo GMS -->
+                    <div class="w-14 h-14 bg-gradient-to-tr from-indigo-700 via-indigo-600 to-blue-500 rounded-xl shadow-md flex items-center justify-center text-white font-black text-xl tracking-wider ring-4 ring-indigo-50">
+                        GMS
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">GMS Payroll & Tax Engine</h1>
+                            <span class="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-indigo-200 uppercase tracking-wider">Enterprise</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-0.5">Sistem Penggajian, PPh 21 & Multi-Bank Gateway — <b>PT Graha Mega Solusindo</b></p>
+                    </div>
+                </div>
+                
+                <!-- Tombol Akses Utama / Ekspor -->
+                <div id="exportActionBtns" class="flex flex-wrap items-center gap-2 hidden">
+                    <button onclick="downloadExcel()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg shadow-sm transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-file-excel"></i> Unduh Excel Lengkap
+                    </button>
+                    <!-- Dropdown Ekspor Bank -->
+                    <div class="relative inline-block text-left">
+                        <select id="bankFormatSelect" onchange="handleBankExport(this.value)" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg shadow-sm transition cursor-pointer focus:outline-none">
+                            <option value="" disabled selected>📥 Ekspor CSV Payroll Bank...</option>
+                            <option value="mandiri">Format Mandiri MCM </option>
+                            <option value="custom">⚙️ Gunakan Template Bank Kustom</option>
+                        </select>
+                    </div>
+                    <button onclick="downloadPDF()" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg shadow-sm transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-print"></i> Cetak / PDF
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Area Action Bar Input File & Berita Transfer -->
+            <div class="mt-5 flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 pt-4">
+                <div class="flex items-center gap-3">
+                    <label class="block">
+                        <span class="sr-only">Pilih File Excel</span>
+                        <input type="file" id="excelFile" accept=".xlsx, .xls" class="block w-full text-xs text-slate-500
+                            file:mr-4 file:py-2 file:px-4
+                            file:rounded-full file:border-0
+                            file:text-xs file:font-semibold
+                            file:bg-indigo-50 file:text-indigo-700
+                            hover:file:bg-indigo-100 cursor-pointer transition
+                        "/>
+                    </label>
+                    <button id="resetBtn" class="bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium px-3.5 py-2 rounded-lg transition hidden">Reset Data</button>
+                </div>
+
+                <!-- Input Konfigurasi Rekening Perusahaan & Berita Transfer MCM -->
+                <div class="flex flex-wrap items-center gap-3" id="beritaContainer" style="display: none;">
+                    <div>
+                        <label class="text-[11px] font-semibold text-slate-600 block">No. Rek Perusahaan (Pengirim):</label>
+                        <input type="text" id="senderAccount" value="1180001010882" placeholder="Rek Perusahaan" class="p-1.5 border border-slate-300 rounded-md text-xs w-36 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-semibold text-slate-600 block">Berita Transfer Mandiri MCM:</label>
+                        <input type="text" id="globalRemark" value="GAJI SEPTEMBER 2026 ALIH DAYA PENGEMUDI KANTOR STAF PRESIDEN" class="p-1.5 border border-slate-300 rounded-md text-xs w-72 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </div>
+                    <button onclick="openTemplateModal()" class="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow-sm transition flex items-center gap-1.5 self-end">
+                        <i class="fa-solid fa-sliders"></i> Atur Template Kustom
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Panel Kontrol Mode Perhitungan PPh 21 & Aksi Cepat -->
+        <section id="pphControlPanel" class="bg-white shadow-sm border border-slate-200/80 rounded-2xl p-5 hidden">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-indigo-700 mb-3 flex items-center gap-1.5">
+                <i class="fa-solid fa-calculator"></i> Panel Mode Perhitungan PPh 21 & Aksi Cepat
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                <!-- Mode Selector -->
+                <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                    <label class="font-semibold block mb-1 text-slate-700">Mode Perhitungan PPh 21:</label>
+                    <select id="calcMode" onchange="changeCalcMode(this.value)" class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500">
+                        <option value="custom">Edit Manual Per Karyawan</option>
+                        <option value="flat">Nominal Flat Sama untuk Terpilih</option>
+                        <option value="ter">Persentase TER (% dari Σ Bruto)</option>
+                    </select>
+                    <div class="mt-2 flex items-center gap-2 hidden" id="valInputGroup">
+                        <span class="text-slate-600 font-medium" id="valLabel">Nominal (Rp):</span>
+                        <input type="text" id="globalPphValue" value="50.000" oninput="applyGlobalPphValue(this)" class="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs text-right focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+
+                <!-- Bulk Selection Actions -->
+                <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 flex flex-col justify-between">
+                    <div>
+                        <label class="font-semibold block mb-1 text-slate-700">Aksi Cepat Centang PPh 21:</label>
+                        <div class="flex gap-2 mt-1">
+                            <button onclick="selectAllPph(true)" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-3 py-1.5 rounded-lg font-semibold text-xs transition">Centang Semua</button>
+                            <button onclick="selectAllPph(false)" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-lg font-semibold text-xs transition">Hapus Semua</button>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-right">
+                        <span class="text-slate-600">Terpilih PPh 21: </span>
+                        <span id="selectedCount" class="font-bold text-indigo-700 text-sm">0</span> Karyawan
+                    </div>
+                </div>
+
+                <!-- Filter Search Karyawan -->
+                <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                    <label class="font-semibold block mb-1 text-slate-700">Cari Karyawan:</label>
+                    <input type="text" id="searchInput" oninput="renderTable()" placeholder="Ketik NIK atau Nama..." class="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500">
+                    <p class="text-[10px] text-slate-400 mt-1">Filter otomatis daftar tabel di bawah secara real-time.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Area Tabel Rekap -->
+        <div id="tableContainer" class="bg-white shadow-sm border border-slate-200/80 rounded-2xl p-6 overflow-hidden hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-base font-bold text-slate-800">Tabel Rekap Gaji, Bank, PPh 21 & Penyesuaian</h2>
+                <div class="text-xs text-slate-600 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg">
+                    💡 <b>Info:</b> Kolom <i>Bank</i>, <i>No Rekening</i>, <i>PPh 21</i>, dan <i>Penyesuaian</i> bisa diketik langsung.
+                </div>
+            </div>
+
+            <div class="overflow-x-auto max-h-[600px] border border-slate-200 rounded-xl">
+                <table id="payrollTable" class="min-w-full border-collapse text-xs text-left">
+                    <thead class="bg-indigo-600 text-white sticky top-0 z-10" id="tableHead">
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-200">
+                    </tbody>
+                    <tfoot class="bg-slate-100 font-bold sticky bottom-0" id="tableFoot">
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- Panduan Awal jika belum upload -->
+        <div id="placeholderView" class="bg-white border-2 border-dashed border-slate-300 rounded-2xl p-14 text-center">
+            <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                <i class="fa-solid fa-cloud-arrow-up text-2xl"></i>
+            </div>
+            <h3 class="text-base font-bold text-slate-800">Belum ada data dimuat</h3>
+            <p class="mt-1 text-xs text-slate-500 max-w-sm mx-auto">Silakan unggah file Excel Rekap Gaji PT Graha Mega Solusindo di atas untuk mulai memproses penggajian.</p>
+        </div>
+    </div>
+
+    <!-- Modal Template Bank Kustom -->
+    <div id="templateModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4 m-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-bold text-base text-indigo-700 flex items-center gap-2">
+                    <i class="fa-solid fa-gear"></i> Pengaturan Template Bank Kustom (CSV)
+                </h3>
+                <button onclick="closeTemplateModal()" class="text-slate-400 hover:text-slate-600 text-sm font-bold">✕</button>
+            </div>
+            <p class="text-xs text-slate-500">Unggah contoh file CSV dari bank lain untuk melihat struktur kolomnya, atau tentukan indeks kolom secara manual.</p>
+            
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="font-semibold block mb-1">Unggah Contoh File CSV Bank Tujuan:</label>
+                    <input type="file" id="sampleBankCsv" accept=".csv" onchange="parseSampleCsvTemplate(this)" class="block w-full text-xs text-slate-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 cursor-pointer border rounded-lg">
+                </div>
+                <div>
+                    <label class="font-semibold block mb-1">Nama Bank / Template:</label>
+                    <input type="text" id="customBankName" value="Bank Lain (Kustom)" class="w-full p-2 border border-slate-300 rounded-lg text-xs">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="font-semibold block mb-1">Kolom No Rekening (Indeks ke-):</label>
+                        <input type="number" id="mapAccIdx" value="0" min="0" class="w-full p-2 border border-slate-300 rounded-lg text-xs">
+                    </div>
+                    <div>
+                        <label class="font-semibold block mb-1">Kolom Nama Karyawan (Indeks ke-):</label>
+                        <input type="number" id="mapNameIdx" value="1" min="0" class="w-full p-2 border border-slate-300 rounded-lg text-xs">
+                    </div>
+                    <div>
+                        <label class="font-semibold block mb-1">Kolom Nominal / Gaji Bersih (Indeks ke-):</label>
+                        <input type="number" id="mapAmountIdx" value="6" min="0" class="w-full p-2 border border-slate-300 rounded-lg text-xs">
+                    </div>
+                    <div>
+                        <label class="font-semibold block mb-1">Kolom Berita Transfer (Indeks ke-):</label>
+                        <input type="number" id="mapRemarkIdx" value="7" min="0" class="w-full p-2 border border-slate-300 rounded-lg text-xs">
+                    </div>
+                </div>
+                <div id="samplePreviewInfo" class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-[11px] text-slate-600 hidden">
+                    <b>Info Sampel Terdeteksi:</b> Kolom pertama berhasil dibaca.
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button onclick="closeTemplateModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-4 py-2 rounded-lg transition">Batal</button>
+                <button onclick="saveAndExportCustomBank()" class="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition shadow-sm">Simpan & Unduh CSV Kustom</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let parsedEmployees = [];
+        let currentMode = "custom";
+
+        // Fungsi Helper untuk Menampilkan/Menyembunyikan Overlay Loading Spinner
+        function showLoading(title = "Memproses Data...", desc = "Harap tunggu sejenak...") {
+            document.getElementById('loadingTitle').textContent = title;
+            document.getElementById('loadingDesc').textContent = desc;
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.add('hidden');
+        }
+
+        document.getElementById('excelFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            showLoading("Membaca File Excel...", "Sistem sedang menguraikan data gaji karyawan.");
+
+            setTimeout(() => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, {type: 'array'});
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        
+                        const jsonRows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+                        const dataRows = jsonRows.slice(3); // Data karyawan mulai baris ke-4
+
+                        processAndRenderData(dataRows);
+                    } catch (err) {
+                        alert("Gagal membaca file Excel. Pastikan format file sesuai!");
+                    } finally {
+                        hideLoading();
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            }, 300);
+        });
+
+        function parseNumber(val) {
+            if (val === undefined || val === null || val === '') return 0;
+            if (typeof val === 'number') {
+                const s = String(val);
+                if (s.includes('.') && s.split('.')[1] && s.split('.')[1].length <= 3) {
+                    return Math.round(val * 1000);
+                }
+                return Math.round(val);
+            }
+            let strVal = String(val).trim();
+            strVal = strVal.replace(/\./g, '').replace(',', '.');
+            const num = parseFloat(strVal);
+            return isNaN(num) ? 0 : Math.round(num);
+        }
+
+        function formatRupiah(num) {
+            return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(num || 0);
+        }
+
+        function processAndRenderData(rows) {
+            parsedEmployees = [];
+            
+            rows.forEach((r, index) => {
+                if (!r[1] && !r[2]) return; 
+
+                const penambahAsli = parseNumber(r[20]);
+                const pengurangAsli = parseNumber(r[21]);
+                const netPenyesuaianAsli = penambahAsli - pengurangAsli;
+
+                parsedEmployees.push({
+                    id: index,
+                    no: r[0] || (index + 1),
+                    nik: r[1] || '',
+                    nama: r[2] || '',
+                    jabatan: r[3] || '',
+                    dept: r[4] || '',
+                    cabang: r[5] || '',
+                    
+                    namaBank: 'MANDIRI',
+                    noRekening: '',
+
+                    gajiPokok: parseNumber(r[6]),
+                    tunjangan: parseNumber(r[7]),
+                    bruto: parseNumber(r[8]),
+                    jamKerja: r[9] || 0,
+                    upahJam: parseNumber(r[10]),
+                    denda: parseNumber(r[11]),
+                    potJamJam: r[12] || '0',
+                    potJamJml: parseNumber(r[13]),
+                    bpjsKesehatan: parseNumber(r[14]),
+                    bpjsKetenagakerjaan: parseNumber(r[15]),
+                    pinjaman: parseNumber(r[16]),
+                    potonganAsli: parseNumber(r[17]), 
+                    lemburJam: r[18] || '0',
+                    lemburJml: parseNumber(r[19]),
+                    
+                    penyesuaianNominal: netPenyesuaianAsli,
+                    initialPenyesuaian: netPenyesuaianAsli,
+                    gajiBersihAsli: parseNumber(r[22]),
+                    
+                    isPphChecked: false,
+                    pph21Nominal: 0
+                });
+            });
+
+            renderTable();
+            document.getElementById('tableContainer').classList.remove('hidden');
+            document.getElementById('pphControlPanel').classList.remove('hidden');
+            document.getElementById('placeholderView').classList.add('hidden');
+            document.getElementById('resetBtn').classList.remove('hidden');
+            document.getElementById('exportActionBtns').classList.remove('hidden');
+            document.getElementById('beritaContainer').style.display = 'flex';
+        }
+
+        function changeCalcMode(mode) {
+            currentMode = mode;
+            const group = document.getElementById('valInputGroup');
+            const label = document.getElementById('valLabel');
+            const input = document.getElementById('globalPphValue');
+
+            if (mode === 'flat') {
+                group.classList.remove('hidden');
+                label.textContent = "Nominal (Rp):";
+                input.value = "50.000";
+            } else if (mode === 'ter') {
+                group.classList.remove('hidden');
+                label.textContent = "Tarif TER (%):";
+                input.value = "0,5";
+            } else {
+                group.classList.add('hidden');
+            }
+            recalculateAllPph();
+        }
+
+        function applyGlobalPphValue(inputElem) {
+            if (currentMode === 'flat') {
+                let rawVal = inputElem.value.replace(/[^0-9]/g, '');
+                let num = parseInt(rawVal) || 0;
+                inputElem.value = formatRupiah(num);
+            }
+            recalculateAllPph();
+        }
+
+        function recalculateAllPph() {
+            const inputValStr = document.getElementById('globalPphValue').value;
+            
+            parsedEmployees.forEach(emp => {
+                if (emp.isPphChecked) {
+                    if (currentMode === 'flat') {
+                        let num = parseInt(inputValStr.replace(/[^0-9]/g, '')) || 0;
+                        emp.pph21Nominal = num;
+                    } else if (currentMode === 'ter') {
+                        let pct = parseFloat(inputValStr.replace(',', '.')) || 0;
+                        emp.pph21Nominal = Math.round((emp.bruto * pct) / 100);
+                    }
+                } else {
+                    if (currentMode !== 'custom') {
+                        emp.pph21Nominal = 0;
+                    }
+                }
+            });
+            renderTable();
+        }
+
+        function selectAllPph(check) {
+            parsedEmployees.forEach(emp => {
+                emp.isPphChecked = check;
+            });
+            recalculateAllPph();
+        }
+
+        function renderTable() {
+            const thead = document.getElementById('tableHead');
+            const tbody = document.getElementById('tableBody');
+            const tfoot = document.getElementById('tableFoot');
+            const filter = (document.getElementById('searchInput').value || "").toLowerCase();
+
+            thead.innerHTML = `
+                <tr>
+                    <th class="p-2 border border-indigo-500 text-center">No</th>
+                    <th class="p-2 border border-indigo-500">Nik</th>
+                    <th class="p-2 border border-indigo-500">Nama Karyawan</th>
+                    <th class="p-2 border border-indigo-500">Jabatan</th>
+                    <th class="p-2 border border-indigo-500">Dept</th>
+                    <th class="p-2 border border-indigo-500">Cabang</th>
+                    
+                    <th class="p-2 border bg-cyan-700 text-white border-indigo-500">Nama Bank</th>
+                    <th class="p-2 border bg-cyan-700 text-white border-indigo-500">No Rekening</th>
+
+                    <th class="p-2 border border-indigo-500 text-right">Gaji Pokok</th>
+                    <th class="p-2 border border-indigo-500 text-right">Tunjangan</th>
+                    <th class="p-2 border border-indigo-500 text-right">Σ Bruto</th>
+                    <th class="p-2 border border-indigo-500 text-center">Σ Jam Kerja</th>
+                    <th class="p-2 border border-indigo-500 text-right">Upah/Jam</th>
+                    <th class="p-2 border border-indigo-500 text-right">Denda</th>
+                    <th class="p-2 border border-indigo-500 text-right">Pot. Jam</th>
+                    <th class="p-2 border border-indigo-500 text-right">BPJS Kes</th>
+                    <th class="p-2 border border-indigo-500 text-right">BPJS TK</th>
+                    <th class="p-2 border border-indigo-500 text-right">Pinjaman</th>
+                    
+                    <th class="p-2 border bg-amber-600 text-white border-indigo-500 text-center">Pilih PPh21</th>
+                    <th class="p-2 border bg-amber-600 text-white border-indigo-500 text-right">Nominal PPh 21</th>
+                    
+                    <th class="p-2 border border-indigo-500 text-right">Potongan</th>
+                    <th class="p-2 border border-indigo-500 text-right">Lembur</th>
+                    <th class="p-2 border bg-indigo-700 text-white border-indigo-500 text-right">Penyesuaian</th>
+                    <th class="p-2 border border-indigo-500 text-right">Gaji Bersih</th>
+                </tr>
+            `;
+
+            tbody.innerHTML = '';
+            
+            let totalGajiPokok = 0, totalTunjangan = 0, totalBruto = 0, totalDenda = 0;
+            let totalPotJamJml = 0, totalBpjsKes = 0, totalBpjsTk = 0, totalPinjaman = 0;
+            let totalPph21 = 0, totalPotonganRiilAll = 0, totalLemburJml = 0;
+            let totalPenyesuaianAll = 0, totalGajiBersihRiilAll = 0;
+            let checkedCount = 0;
+
+            parsedEmployees.forEach((emp, idx) => {
+                if (emp.isPphChecked) checkedCount++;
+
+                const totalPotonganRiil = emp.potonganAsli + emp.pph21Nominal;
+                const selisihPenyesuaian = emp.penyesuaianNominal - emp.initialPenyesuaian;
+                const gajiBersihRiil = emp.gajiBersihAsli - emp.pph21Nominal + selisihPenyesuaian;
+
+                totalGajiPokok += emp.gajiPokok;
+                totalTunjangan += emp.tunjangan;
+                totalBruto += emp.bruto;
+                totalDenda += emp.denda;
+                totalPotJamJml += emp.potJamJml;
+                totalBpjsKes += emp.bpjsKesehatan;
+                totalBpjsTk += emp.bpjsKetenagakerjaan;
+                totalPinjaman += emp.pinjaman;
+                totalPph21 += emp.pph21Nominal;
+                totalPotonganRiilAll += totalPotonganRiil;
+                totalLemburJml += emp.lemburJml;
+                totalPenyesuaianAll += emp.penyesuaianNominal;
+                totalGajiBersihRiilAll += gajiBersihRiil;
+
+                if (filter && !emp.nama.toLowerCase().includes(filter) && !String(emp.nik).toLowerCase().includes(filter)) {
+                    return;
+                }
+
+                const isRekeningKosong = !emp.noRekening;
+                const rekBgClass = isRekeningKosong ? 'bg-rose-50 border-rose-300' : 'bg-cyan-50/30 border-cyan-200';
+
+                const tr = document.createElement('tr');
+                tr.className = emp.isPphChecked ? "bg-amber-50/40 hover:bg-amber-100/40 transition" : "hover:bg-slate-50 transition";
+                tr.innerHTML = `
+                    <td class="p-2 border border-slate-200 text-center">${emp.no}</td>
+                    <td class="p-2 border border-slate-200">${emp.nik}</td>
+                    <td class="p-2 border border-slate-200 font-medium text-slate-900">${emp.nama}</td>
+                    <td class="p-2 border border-slate-200">${emp.jabatan}</td>
+                    <td class="p-2 border border-slate-200">${emp.dept}</td>
+                    <td class="p-2 border border-slate-200">${emp.cabang}</td>
+                    
+                    <td class="p-2 border ${rekBgClass}">
+                        <input type="text" value="${emp.namaBank}" placeholder="Cth: MANDIRI" oninput="updateBank(${idx}, this.value)" class="w-24 p-1 border rounded text-xs focus:ring-1 focus:ring-indigo-500">
+                    </td>
+                    <td class="p-2 border ${rekBgClass}">
+                        <input type="text" value="${emp.noRekening}" placeholder="No Rek" oninput="updateRekening(${idx}, this.value)" class="w-32 p-1 border rounded text-xs focus:ring-1 focus:ring-indigo-500">
+                    </td>
+
+                    <td class="p-2 border border-slate-200 text-right">${formatRupiah(emp.gajiPokok)}</td>
+                    <td class="p-2 border border-slate-200 text-right">${formatRupiah(emp.tunjangan)}</td>
+                    <td class="p-2 border border-slate-200 text-right font-semibold">${formatRupiah(emp.bruto)}</td>
+                    <td class="p-2 border border-slate-200 text-center">${emp.jamKerja}</td>
+                    <td class="p-2 border border-slate-200 text-right">${formatRupiah(emp.upahJam)}</td>
+                    <td class="p-2 border border-slate-200 text-right">${formatRupiah(emp.denda)}</td>
+                    <td class="p-2 border border-slate-200 text-right">${formatRupiah(emp.potJamJml)}</td>
+                    <td class="p-2 border border-slate-200 text-right">${formatRupiah(emp.bpjsKesehatan)}</td>
+                    <td class="p-2 border border-slate-200 text-right">${formatRupiah(emp.bpjsKetenagakerjaan)}</td>
+                    <td class="p-2 border border-slate-200 text-right">${formatRupiah(emp.pinjaman)}</td>
+                    
+                    <td class="p-2 border border-amber-200 bg-amber-50/50 text-center">
+                        <input type="checkbox" ${emp.isPphChecked ? 'checked' : ''} onchange="togglePph(${idx}, this.checked)" class="w-4 h-4 text-indigo-600 rounded cursor-pointer">
+                    </td>
+                    <td class="p-2 border border-amber-200 bg-amber-50/50 text-right">
+                        <input type="text" value="${emp.pph21Nominal ? formatRupiah(emp.pph21Nominal) : ''}" placeholder="0" oninput="updatePphNominal(${idx}, this)" class="w-28 p-1 border rounded text-right text-xs focus:ring-1 focus:ring-indigo-500">
+                    </td>
+                    
+                    <td class="p-2 border border-slate-200 text-right font-bold text-red-600">${formatRupiah(totalPotonganRiil)}</td>
+                    <td class="p-2 border border-slate-200 text-right">${formatRupiah(emp.lemburJml)}</td>
+                    
+                    <td class="p-2 border border-indigo-200 bg-indigo-50/35 text-right">
+                        <input type="text" value="${emp.penyesuaianNominal ? formatRupiah(emp.penyesuaianNominal) : ''}" placeholder="0" oninput="updatePenyesuaian(${idx}, this)" class="w-28 p-1 border rounded text-right text-xs focus:ring-1 focus:ring-indigo-500">
+                    </td>
+                    
+                    <td class="p-2 border border-slate-200 text-right font-bold text-emerald-600">${formatRupiah(gajiBersihRiil)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('selectedCount').textContent = checkedCount;
+
+            tfoot.innerHTML = `
+                <tr>
+                    <td colspan="8" class="p-2 border border-slate-300 text-right font-bold">TOTAL KESELURUHAN:</td>
+                    <td class="p-2 border border-slate-300 text-right">${formatRupiah(totalGajiPokok)}</td>
+                    <td class="p-2 border border-slate-300 text-right">${formatRupiah(totalTunjangan)}</td>
+                    <td class="p-2 border border-slate-300 text-right">${formatRupiah(totalBruto)}</td>
+                    <td class="p-2 border border-slate-300 text-center">-</td>
+                    <td class="p-2 border border-slate-300 text-right">-</td>
+                    <td class="p-2 border border-slate-300 text-right">${formatRupiah(totalDenda)}</td>
+                    <td class="p-2 border border-slate-300 text-right">${formatRupiah(totalPotJamJml)}</td>
+                    <td class="p-2 border border-slate-300 text-right">${formatRupiah(totalBpjsKes)}</td>
+                    <td class="p-2 border border-slate-300 text-right">${formatRupiah(totalBpjsTk)}</td>
+                    <td class="p-2 border border-slate-300 text-right">${formatRupiah(totalPinjaman)}</td>
+                    <td class="p-2 border border-amber-300 bg-amber-100 text-center">-</td>
+                    <td class="p-2 border border-amber-300 bg-amber-100 text-right">${formatRupiah(totalPph21)}</td>
+                    <td class="p-2 border border-slate-300 text-right text-red-600">${formatRupiah(totalPotonganRiilAll)}</td>
+                    <td class="p-2 border border-slate-300 text-right">${formatRupiah(totalLemburJml)}</td>
+                    <td class="p-2 border border-indigo-300 bg-indigo-100 text-right">${formatRupiah(totalPenyesuaianAll)}</td>
+                    <td class="p-2 border border-slate-300 text-right text-emerald-600">${formatRupiah(totalGajiBersihRiilAll)}</td>
+                </tr>
+            `;
+        }
+
+        function updateBank(idx, val) { parsedEmployees[idx].namaBank = val; }
+        function updateRekening(idx, val) { parsedEmployees[idx].noRekening = val; }
+        function togglePph(idx, isChecked) { parsedEmployees[idx].isPphChecked = isChecked; recalculateAllPph(); }
+        function updatePphNominal(idx, inputElement) {
+            let num = parseInt(inputElement.value.replace(/[^0-9]/g, '')) || 0;
+            parsedEmployees[idx].pph21Nominal = num;
+            parsedEmployees[idx].isPphChecked = (num > 0);
+            renderTable();
+        }
+        function updatePenyesuaian(idx, inputElement) {
+            let num = parseInt(inputElement.value.replace(/[^0-9]/g, '')) || 0;
+            parsedEmployees[idx].penyesuaianNominal = num;
+            renderTable();
+        }
+
+        // Modal Template Functions
+        function openTemplateModal() { document.getElementById('templateModal').classList.remove('hidden'); }
+        function closeTemplateModal() { document.getElementById('templateModal').classList.add('hidden'); }
+
+        function parseSampleCsvTemplate(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const firstLine = text.split('\n')[0];
+                const cols = firstLine.split(',');
+                const info = document.getElementById('samplePreviewInfo');
+                info.classList.remove('hidden');
+                info.innerHTML = `<b>Sampel CSV Terbaca:</b> Ditemukan ${cols.length} kolom pada baris pertama.`;
+            };
+            reader.readAsText(file);
+        }
+
+        function saveAndExportCustomBank() {
+            showLoading("Mengkonversi CSV Kustom...", "Merakit baris data sesuai template kustom pilihan Anda.");
+
+            setTimeout(() => {
+                try {
+                    const accIdx = parseInt(document.getElementById('mapAccIdx').value) || 0;
+                    const nameIdx = parseInt(document.getElementById('mapNameIdx').value) || 1;
+                    const amountIdx = parseInt(document.getElementById('mapAmountIdx').value) || 6;
+                    const remarkIdx = parseInt(document.getElementById('mapRemarkIdx').value) || 7;
+                    const bankName = document.getElementById('customBankName').value || "CustomBank";
+                    const remark = document.getElementById('globalRemark').value || "GAJI KARYAWAN";
+
+                    let maxCol = Math.max(accIdx, nameIdx, amountIdx, remarkIdx);
+                    let csvRows = [];
+
+                    parsedEmployees.forEach(emp => {
+                        const selisih = emp.penyesuaianNominal - emp.initialPenyesuaian;
+                        const bersih = emp.gajiBersihAsli - emp.pph21Nominal + selisih;
+                        
+                        let rowData = new Array(maxCol + 1).fill("");
+                        rowData[accIdx] = emp.noRekening;
+                        rowData[nameIdx] = emp.nama;
+                        rowData[amountIdx] = bersih;
+                        rowData[remarkIdx] = remark;
+
+                        csvRows.push(rowData.map(cell => typeof cell === 'string' && cell.includes(' ') ? `"${cell}"` : cell).join(","));
+                    });
+
+                    const csvString = csvRows.join("\r\n");
+                    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    link.setAttribute("download", `payroll_${bankName.toLowerCase().replace(/\s+/g, '_')}.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+
+                    closeTemplateModal();
+                } finally {
+                    hideLoading();
+                }
+            }, 400);
+        }
+
+        // Ekspor Bank Mandiri MCM
+        function handleBankExport(bankType) {
+            if (bankType === 'custom') {
+                openTemplateModal();
+                document.getElementById('bankFormatSelect').value = "";
+                return;
+            }
+            if (!bankType) return;
+
+            showLoading("Menggenerate CSV Mandiri MCM...", "Menyusun 44 kolom transaksi & baris header transfer massal.");
+
+            setTimeout(() => {
+                try {
+                    const remark = document.getElementById('globalRemark').value || "GAJI KARYAWAN";
+                    const senderAcc = document.getElementById('senderAccount').value || "1180001010882";
+                    
+                    const now = new Date();
+                    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+
+                    let csvRows = [];
+                    let totalNominal = 0;
+                    let totalRecords = parsedEmployees.length;
+
+                    parsedEmployees.forEach(emp => {
+                        const selisih = emp.penyesuaianNominal - emp.initialPenyesuaian;
+                        totalNominal += (emp.gajiBersihAsli - emp.pph21Nominal + selisih);
+                    });
+
+                    let headerRow = new Array(44).fill("");
+                    headerRow[0] = "P";
+                    headerRow[1] = dateStr;
+                    headerRow[2] = senderAcc;
+                    headerRow[3] = totalRecords;
+                    headerRow[4] = totalNominal;
+                    csvRows.push(headerRow.join(","));
+
+                    parsedEmployees.forEach(emp => {
+                        const selisih = emp.penyesuaianNominal - emp.initialPenyesuaian;
+                        const bersih = emp.gajiBersihAsli - emp.pph21Nominal + selisih;
+
+                        let detailRow = new Array(44).fill("");
+                        detailRow[0] = emp.noRekening;
+                        detailRow[1] = emp.nama;
+                        detailRow[5] = "IDR";
+                        detailRow[6] = bersih;
+                        detailRow[7] = remark;
+                        detailRow[9] = "IBU";
+                        detailRow[11] = (emp.namaBank || "MANDIRI").toUpperCase();
+                        detailRow[12] = "Jakarta";
+                        detailRow[16] = "N";
+                        detailRow[21] = "Y";
+                        detailRow[37] = "OUR";
+                        detailRow[38] = "1";
+                        detailRow[39] = "E";
+
+                        csvRows.push(detailRow.map(cell => typeof cell === 'string' && cell.includes(' ') ? `"${cell}"` : cell).join(","));
+                    });
+
+                    const blob = new Blob([csvRows.join("\r\n")], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    link.setAttribute("download", `mandiri_mcm_payroll_${dateStr}.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } finally {
+                    hideLoading();
+                    document.getElementById('bankFormatSelect').value = "";
+                }
+            }, 400);
+        }
+
+        function downloadExcel() {
+            showLoading("Mengekspor Excel...", "Menyusun lembar kerja rekapitulasi gaji.");
+            setTimeout(() => {
+                try {
+                    const dataToExport = parsedEmployees.map(emp => {
+                        const totalPot = emp.potonganAsli + emp.pph21Nominal;
+                        const selisihPenyesuaian = emp.penyesuaianNominal - emp.initialPenyesuaian;
+                        const bersih = emp.gajiBersihAsli - emp.pph21Nominal + selisihPenyesuaian;
+
+                        return {
+                            "No": emp.no, "NIK": emp.nik, "Nama Karyawan": emp.nama, "Jabatan": emp.jabatan, "Dept": emp.dept, "Cabang": emp.cabang,
+                            "Nama Bank": emp.namaBank, "No Rekening": emp.noRekening, "Gaji Pokok": emp.gajiPokok, "Tunjangan": emp.tunjangan,
+                            "Σ Bruto": emp.bruto, "Σ Jam Kerja": emp.jamKerja, "Upah/Jam": emp.upahJam, "Denda": emp.denda, "Pot. Jam": emp.potJamJml,
+                            "BPJS Kesehatan": emp.bpjsKesehatan, "BPJS Ketenagakerjaan": emp.bpjsKetenagakerjaan, "Pinjaman": emp.pinjaman,
+                            "PPh 21": emp.pph21Nominal, "Potongan (Total)": totalPot, "Lembur": emp.lemburJml, "Penyesuaian": emp.penyesuaianNominal, "Gaji Bersih": bersih
+                        };
+                    });
+
+                    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+                    const workbook = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Gaji Bank");
+                    XLSX.writeFile(workbook, "Rekap_Gaji_GMS.xlsx");
+                } finally {
+                    hideLoading();
+                }
+            }, 300);
+        }
+
+        function downloadPDF() { window.print(); }
+
+        document.getElementById('resetBtn').addEventListener('click', function() {
+            document.getElementById('excelFile').value = '';
+            document.getElementById('tableContainer').classList.add('hidden');
+            document.getElementById('pphControlPanel').classList.add('hidden');
+            document.getElementById('placeholderView').classList.remove('hidden');
+            document.getElementById('exportActionBtns').classList.add('hidden');
+            document.getElementById('beritaContainer').style.display = 'none';
+            this.classList.add('hidden');
+            parsedEmployees = [];
+        });
+    </script>
+</body>
+</html>
