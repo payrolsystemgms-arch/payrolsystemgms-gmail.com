@@ -560,12 +560,31 @@
         function updateBank(idx, val) { parsedEmployees[idx].namaBank = val; }
         function updateRekening(idx, val) { parsedEmployees[idx].noRekening = val; }
         function togglePph(idx, isChecked) { parsedEmployees[idx].isPphChecked = isChecked; recalculateAllPph(); }
-        function updatePphNominal(idx, inputElement) {
-            let num = parseInt(inputElement.value.replace(/[^0-9]/g, '')) || 0;
-            parsedEmployees[idx].pph21Nominal = num;
-            parsedEmployees[idx].isPphChecked = (num > 0);
-            renderTable();
+      function updatePphNominal(idx, inputElement) {
+    // Ambil nilai mentah angka
+    let num = parseInt(inputElement.value.replace(/[^0-9]/g, '')) || 0;
+    parsedEmployees[idx].pph21Nominal = num;
+    parsedEmployees[idx].isPphChecked = (num > 0);
+    
+    // Update total potongan dan gaji bersih pada baris tersebut secara langsung (DOM manipulation lokal)
+    const emp = parsedEmployees[idx];
+    const totalPotonganRiil = emp.potonganAsli + emp.pph21Nominal;
+    const selisihPenyesuaian = emp.penyesuaianNominal - emp.initialPenyesuaian;
+    const gajiBersihRiil = emp.gajiBersihAsli - emp.pph21Nominal + selisihPenyesuaian;
+
+    // Cari baris tr terkait dan update kolom Total Potongan & Gaji Bersih tanpa render ulang tabel
+    const tr = inputElement.closest('tr');
+    if (tr) {
+        const cells = tr.querySelectorAll('td');
+        if (cells.length >= 24) {
+            cells[20].textContent = formatRupiah(totalPotonganRiil); // Kolom Total Potongan
+            cells[23].textContent = formatRupiah(gajiBersihRiil);    // Kolom Gaji Bersih
         }
+    }
+    
+    // Perbarui counter atau footer ringkasan secara aman tanpa mereset fokus input aktif
+    updateFooterSummary();
+}
         function updatePenyesuaian(idx, inputElement) {
             let num = parseInt(inputElement.value.replace(/[^0-9]/g, '')) || 0;
             parsedEmployees[idx].penyesuaianNominal = num;
@@ -590,6 +609,7 @@
             };
             reader.readAsText(file);
         }
+        
 
         function saveAndExportCustomBank() {
             showLoading("Mengkonversi CSV Kustom...", "Merakit baris data sesuai template kustom pilihan Anda.");
