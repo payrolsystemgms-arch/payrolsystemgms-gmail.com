@@ -33,41 +33,40 @@
     </div>
 
     <div class="max-w-7xl mx-auto p-6 space-y-6">
-        <!-- Header Utama dengan Logo & Branding GMS -->
         <header class="bg-white shadow-sm border border-slate-200/80 rounded-2xl p-6 transition-all">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <!-- Logo & Identitas Perusahaan -->
-                <!-- Logo Perusahaan Graha Mega Solusindo -->
-<div class="h-14 bg-white px-2.5 rounded-xl shadow-md flex items-center justify-center overflow-hidden ring-4 ring-indigo-50">
-    <img src="logo.png" alt="Logo PT Graha Mega Solusindo" class="h-10 object-contain">
-</div>
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">GMS Payroll & Tax Engine</h1>
-                            <span class="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-indigo-200 uppercase tracking-wider">Enterprise</span>
-                        </div>
-                        <p class="text-xs text-slate-500 mt-0.5">Sistem Penggajian, PPh 21 & Multi-Bank Gateway — <b>PT Graha Mega Solusindo</b></p>
-                    </div>
-                </div>
-
-                <!-- Tombol Akses Utama / Ekspor -->
-                <div id="exportActionBtns" class="flex flex-wrap items-center gap-2 hidden">
-                    <button onclick="downloadExcel()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg shadow-sm transition flex items-center gap-1.5">
-                        <i class="fa-solid fa-file-excel"></i> Unduh Excel Lengkap
-                    </button>
-                    <!-- Dropdown Ekspor Bank -->
-                    <div class="relative inline-block text-left">
-                        <select id="bankFormatSelect" onchange="handleBankExport(this.value)" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg shadow-sm transition cursor-pointer focus:outline-none">
-                            <option value="" disabled selected>📥 Ekspor CSV Payroll Bank...</option>
-                            <option value="mandiri">Format Mandiri MCM </option>
-                            <option value="custom">⚙️ Gunakan Template Bank Kustom</option>
-                        </select>
-                    </div>
-                    <button onclick="downloadPDF()" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg shadow-sm transition flex items-center gap-1.5">
-                        <i class="fa-solid fa-print"></i> Cetak / PDF Rekap
-                    </button>
-                </div>
+    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+        <!-- Logo & Identitas Perusahaan (Digabung rapat agar proporsional) -->
+        <div class="flex items-center gap-4">
+            <!-- Logo Perusahaan Graha Mega Solusindo -->
+            <div class="h-14 bg-white px-2.5 rounded-xl shadow-md flex items-center justify-center overflow-hidden ring-4 ring-indigo-50 shrink-0">
+                <img src="logo.png" alt="Logo PT Graha Mega Solusindo" class="h-10 object-contain">
             </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">GMS Payroll & Tax Engine</h1>
+                    <span class="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-indigo-200 uppercase tracking-wider">Enterprise</span>
+                </div>
+                <p class="text-xs text-slate-500 mt-0.5">Sistem Penggajian, PPh 21 & Multi-Bank Gateway — <b>PT Graha Mega Solusindo</b></p>
+            </div>
+        </div>
+
+        <!-- Tombol Akses Utama / Ekspor -->
+        <div id="exportActionBtns" class="flex flex-wrap items-center gap-2 hidden">
+            <button onclick="downloadExcel()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg shadow-sm transition flex items-center gap-1.5">
+                <i class="fa-solid fa-file-excel"></i> Unduh Excel Lengkap
+            </button>
+            <div class="relative inline-block text-left">
+                <select id="bankFormatSelect" onchange="handleBankExport(this.value)" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg shadow-sm transition cursor-pointer focus:outline-none">
+                    <option value="" disabled selected>📥 Ekspor CSV Payroll Bank...</option>
+                    <option value="mandiri">Format Mandiri MCM </option>
+                    <option value="custom">⚙️ Gunakan Template Bank Kustom</option>
+                </select>
+            </div>
+            <button onclick="downloadPDF()" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg shadow-sm transition flex items-center gap-1.5">
+                <i class="fa-solid fa-print"></i> Cetak / PDF Rekap
+            </button>
+        </div>
+    </div>
 
             <!-- Area Action Bar Input File & Berita Transfer -->
             <div class="mt-5 flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 pt-4">
