@@ -140,15 +140,42 @@
         </section>
 
         <!-- Area Tabel Rekap -->
+        <!-- Area Tabel Rekap -->
         <div id="tableContainer" class="bg-white shadow-sm border border-slate-200/80 rounded-2xl p-6 overflow-hidden hidden">
-            <div class="flex justify-between items-center mb-4">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-3">
                 <h2 class="text-base font-bold text-slate-800">Tabel Rekap Gaji, Bank, PPh 21 & Penyesuaian</h2>
-                <div class="text-xs text-slate-600 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg">
-                    💡 <b>Info:</b> Kolom <i>Bank</i>, <i>No Rekening</i>, <i>PPh 21</i>, dan <i>Penyesuaian</i> bisa diketik langsung.
+                
+                <!-- Kontrol Zoom & Info -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <div class="flex items-center bg-slate-100 border border-slate-200 rounded-lg p-1 text-xs shadow-sm">
+                        <span class="px-2 font-semibold text-slate-600">Zoom:</span>
+                        <button onclick="adjustZoom(-0.1)" class="bg-white hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded font-bold transition shadow-sm" title="Perkecil Tabel">−</button>
+                        <span id="zoomLevelText" class="px-3 font-bold text-indigo-700">100%</span>
+                        <button onclick="adjustZoom(0.1)" class="bg-white hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded font-bold transition shadow-sm" title="Perbesar Tabel">+</button>
+                        <button onclick="resetZoom()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded font-semibold transition ml-1" title="Reset Ukuran">Reset</button>
+                    </div>
+                    <div class="text-xs text-slate-600 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg">
+                        💡 <b>Info:</b> Kolom <i>Bank</i>, <i>No Rekening</i>, <i>PPh 21</i>, dan <i>Penyesuaian</i> bisa diketik langsung.
+                    </div>
                 </div>
             </div>
+
+            <!-- Wrapper Tabel dengan ID tableWrapper untuk Zoom -->
+            <div id="tableWrapper" class="overflow-x-auto max-h-[600px] border border-slate-200 rounded-xl transition-transform duration-200" style="transform-origin: top left;">
+                <table id="payrollTable" class="min-w-full border-collapse text-xs text-left">
+                    <thead class="bg-indigo-600 text-white sticky top-0 z-10" id="tableHead">
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-200">
+                    </tbody>
+                    <tfoot class="bg-slate-100 font-bold sticky bottom-0" id="tableFoot">
+                    </tfoot>
+                </table>
+            </div>
+        </div>
             <div class="overflow-x-auto max-h-[600px] border border-slate-200 rounded-xl">
                 <table id="payrollTable" class="min-w-full border-collapse text-xs text-left">
+                    <div id="tableWrapper" class="overflow-x-auto max-h-[600px] border border-slate-200 rounded-xl transition-transform duration-200" style="transform-origin: top left;">
+                 <table id="payrollTable" class="min-w-full border-collapse text-xs text-left">
                     <thead class="bg-indigo-600 text-white sticky top-0 z-10" id="tableHead">
                     </thead>
                     <tbody id="tableBody" class="divide-y divide-slate-200">
@@ -346,6 +373,36 @@
             document.getElementById('exportActionBtns').classList.remove('hidden');
             document.getElementById('beritaContainer').style.display = 'flex';
         }
+        
+        // Variabel untuk mengontrol tingkat zoom tabel
+let currentZoom = 1.0;
+
+function adjustZoom(amount) {
+    currentZoom += amount;
+    // Batasi rentang zoom minimal 60% (0.6) dan maksimal 150% (1.5)
+    currentZoom = Math.max(0.6, Math.min(1.5, currentZoom));
+    applyZoom();
+}
+
+function resetZoom() {
+    currentZoom = 1.0;
+    applyZoom();
+}
+
+function applyZoom() {
+    const wrapper = document.getElementById('tableWrapper');
+    if (wrapper) {
+        wrapper.style.transform = `scale(${currentZoom})`;
+        // Menyesuaikan lebar kontainer agar tidak terpotong saat diperbesar/diperkecil
+        if (currentZoom < 1.0) {
+            wrapper.style.width = `${(100 / currentZoom)}%`;
+        } else {
+            wrapper.style.width = '100%';
+        }
+    }
+    const percentText = Math.round(currentZoom * 100);
+    document.getElementById('zoomLevelText').textContent = `${percentText}%`;
+}
 
         function changeCalcMode(mode) {
             currentMode = mode;
